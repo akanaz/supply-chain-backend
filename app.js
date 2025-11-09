@@ -7,28 +7,26 @@ import fs from "fs";
 import productsRouterFunction from "./routes/products.js";
 
 dotenv.config();
-
 const app = express();
 
 /* -----------------------------------------------------------
-   ✅ CORS SETUP (Secure for Production + Local Development)
+   ✅ FIXED CORS CONFIGURATION (handles Vercel + OPTIONS requests)
 ------------------------------------------------------------ */
 
-const allowedOrigins = [
-  "https://supply-chain-kzdi-msg2ky5gi-aks-projects-5385a6ca.vercel.app", // your live frontend on Vercel
-  "http://localhost:3000" // for local development
-];
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://supply-chain-kzdi.vercel.app");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.status(200).end(); // <-- Respond immediately to preflight
+  }
+  next();
+});
 
+// or alternatively you can use cors() below:
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.error("❌ CORS blocked request from:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: "https://supply-chain-kzdi.vercel.app", // your deployed frontend
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -39,12 +37,11 @@ app.use(
 app.use(express.json());
 
 /* -----------------------------------------------------------
-   🔥 FIREBASE INITIALIZATION (Works for Render + Local)
+   🔥 Firebase Initialization (same as before)
 ------------------------------------------------------------ */
 
 let serviceAccount = null;
 
-// 1️⃣ Try loading from Render environment variable
 if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   try {
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
@@ -54,12 +51,10 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   }
 }
 
-// 2️⃣ Fallback: Local file for development
 if (!serviceAccount) {
   const localPath =
     process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH ||
     "./keys/firebase-service-account.json";
-
   try {
     const jsonData = fs.readFileSync(localPath, "utf8");
     serviceAccount = JSON.parse(jsonData);
@@ -69,7 +64,6 @@ if (!serviceAccount) {
   }
 }
 
-// 3️⃣ Initialize Firebase if credentials are valid
 if (serviceAccount) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -98,5 +92,5 @@ app.use("/api/products", productsRouterFunction());
    🚀 START SERVER
 ------------------------------------------------------------ */
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
